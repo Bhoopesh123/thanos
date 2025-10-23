@@ -8,8 +8,8 @@ AWS S3 bucket (or MinIO) ready
 Basic familiarity with Prometheus
 
 # 1: Prepare Directories 
-mkdir -p prometheus_data thanos_data
-sudo chown -R 65534:65534 prometheus_data thanos_data
+    mkdir -p prometheus_data thanos_data
+    sudo chown -R 65534:65534 prometheus_data thanos_data
 
 # 2: Configure S3 Object Storage 
 Create objstore.yml for Thanos:
