@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  scrape_protocols:
+  - OpenMetricsText1.0.0
+  - OpenMetricsText0.0.1
+  - PrometheusProto
+  - PrometheusText0.0.4
+  evaluation_interval: 1m
+
+  external_labels:
+    cluster: "prometheus-dev"   # a unique name for this Prometheus instance
+    replica: "0"
+
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

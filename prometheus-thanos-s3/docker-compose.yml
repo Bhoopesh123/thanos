@@ -1,0 +1,105 @@
+version: "3.9"
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    user: "65534:65534"
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.min-block-duration=2m"
+      - "--storage.tsdb.max-block-duration=2m"
+      - "--web.enable-lifecycle"
+    volumes:
+      # Keep the config file as a bind mount
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      # Use the NAMED VOLUME for data to let Docker handle permissions
+      - prometheus_data:/prometheus 
+    ports:
+      - "9090:9090"
+
+  thanos-sidecar:
+    image: quay.io/thanos/thanos:v0.35.0
+    user: "65534:65534"
+    container_name: thanos-sidecar
+    depends_on:
+      - prometheus
+    command:
+      - "sidecar"
+      - "--tsdb.path=/prometheus"
+      - "--prometheus.url=http://prometheus:9090"
+      - "--objstore.config-file=/etc/thanos/objstore.yml"
+      - "--log.level=info"
+    volumes:
+      # CRITICAL: Use the SAME NAMED VOLUME as Prometheus
+      - prometheus_data:/prometheus
+      - ./objstore.yml:/etc/thanos/objstore.yml
+    ports:
+      - "10901:10901" # gRPC
+      - "10902:10902" # HTTP
+
+  thanos-store:
+    image: quay.io/thanos/thanos:v0.35.0
+    container_name: thanos-store
+    depends_on:
+      - thanos-sidecar
+    command:
+      - "store"
+      - "--objstore.config-file=/etc/thanos/objstore.yml"
+      - "--http-address=0.0.0.0:10903"
+      - "--grpc-address=0.0.0.0:10904"
+    volumes:
+      - ./objstore.yml:/etc/thanos/objstore.yml
+    ports:
+      - "10903:10903"
+      - "10904:10904"
+
+  thanos-query:
+    image: quay.io/thanos/thanos:v0.35.0
+    container_name: thanos-query
+    depends_on:
+      - thanos-sidecar
+      - thanos-store
+    command:
+      - "query"
+      - "--http-address=0.0.0.0:10905"
+      - "--store=thanos-sidecar:10901"
+      - "--store=thanos-store:10904"
+      - "--query.replica-label=replica"
+    ports:
+      - "10905:10905"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    depends_on:
+      - thanos-query
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/datasource.yml
+        apiVersion: 1
+        datasources:
+          - name: Thanos
+            type: prometheus
+            access: proxy
+            url: http://thanos-query:10905
+            isDefault: true
+        EOF
+        /run.sh
+
+volumes:
+  # The named volume definition remains the same
+  prometheus_data:
+  grafana_data:
