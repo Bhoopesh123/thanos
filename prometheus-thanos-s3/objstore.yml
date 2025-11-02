@@ -3,6 +3,6 @@ config:
   bucket: "prometheus-metrics-bucket1"        # your S3 bucket name
   endpoint: "s3.ap-south-1.amazonaws.com"    # your region endpoint
   region: "ap-south-1"                       # your AWS region
-  access_key: "xxx"
-  secret_key: "xxx"
+  access_key: "AKIASVLTZV72YN4IRV2V"
+  secret_key: "jxAaPxv+7CLXfT8kwx8MBfE+TWMUPWdv2j7pWN4H"
   insecure: false
