@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thanos-compactor
+  namespace: monitoring
+  labels:
+    app: thanos-compactor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: thanos-compactor
+  template:
+    metadata:
+      labels:
+        app: thanos-compactor
+    spec:
+      containers:
+      - name: thanos-compactor
+        image: quay.io/thanos/thanos:v0.39.0
+        args:
+          - compact
+          - --wait                       # 🔁 keep running continuously
+          - --log.level=info
+          - --data-dir=/var/thanos/compact
+          - --objstore.config-file=/etc/thanos/thanos.yaml
+          - --retention.resolution-raw=7d
+          - --retention.resolution-5m=30d
+          - --retention.resolution-1h=180d
+          - --http-address=0.0.0.0:10902
+        ports:
+          - name: http
+            containerPort: 10902
+        volumeMounts:
+          - name: objstore-config
+            mountPath: /etc/thanos
+          - name: data
+            mountPath: /var/thanos/compact
+      volumes:
+        - name: objstore-config
+          secret:
+            secretName: thanos-objstore-config # 👇 contains your S3 credentials
+        - name: data
+          persistentVolumeClaim:
+            claimName: thanos-compact-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: thanos-compact-pvc
+  namespace: monitoring
+spec:
+  accessModes: [ "ReadWriteOnce" ]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: thanos-compactor
+  namespace: monitoring
+  labels:
+    app: thanos-compactor
+spec:
+  ports:
+    - name: http
+      port: 10902
+      targetPort: 10902
+  selector:
+    app: thanos-compactor

@@ -1,0 +1,47 @@
+server:
+  extraFlags:
+    - web.enable-lifecycle
+    - web.enable-admin-api
+    - storage.tsdb.min-block-duration=2m
+    - storage.tsdb.max-block-duration=2m
+
+  global:
+    external_labels:
+      prometheus_from: myprom
+
+  service:
+    gRPC:
+      enabled: true
+
+  sidecarContainers:
+    thanos-sidecar:
+      image: quay.io/thanos/thanos:v0.31.0
+      imagePullPolicy: IfNotPresent
+      args:
+        - sidecar
+        - --prometheus.url=http://localhost:9090/
+        - --tsdb.path=/data
+        - --grpc-address=[$(POD_IP)]:10901
+        - --http-address=[$(POD_IP)]:10902
+        - --objstore.config=$(OBJSTORE_CONFIG)
+      volumeMounts:
+        - mountPath: /data
+          name: storage-volume
+      env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: OBJSTORE_CONFIG
+          valueFrom:
+            secretKeyRef:
+              name: thanos-objstore-config
+              key: thanos.yaml
+      ports:
+        - name: http
+          containerPort: 10902
+          protocol: TCP
+        - name: grpc
+          containerPort: 10901
+          protocol: TCP
