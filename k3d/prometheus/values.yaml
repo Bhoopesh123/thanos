@@ -2,8 +2,8 @@ server:
   extraFlags:
     - web.enable-lifecycle
     - web.enable-admin-api
-    - storage.tsdb.min-block-duration=2m
-    - storage.tsdb.max-block-duration=2m
+    - storage.tsdb.min-block-duration=10m
+    - storage.tsdb.max-block-duration=10m
 
   global:
     external_labels:
